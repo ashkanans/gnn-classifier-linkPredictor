@@ -73,9 +73,17 @@ def main():
         evaluator.evaluate()
 
     elif args.action == "cross_test":
-        cross_evaluator = CrossDatasetEvaluator(Config,
-                                                default_handling=args.default_handling,
-                                                model_type=args.model_type)
+        cross_evaluator = CrossDatasetEvaluator(
+            config=Config,
+            model_type=args.model_type,
+            hidden_dim=args.hidden_dim,
+            num_layers=args.num_layers,
+            variant=args.variant,
+            dropout=args.dropout,
+            use_residual=args.use_residual,
+            use_layer_norm=args.use_layer_norm,
+            model_path=args.model_path,
+        )
         cross_evaluator.evaluate()
 
     else:
