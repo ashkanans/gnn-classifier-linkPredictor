@@ -27,7 +27,7 @@ def main():
     # Model architecture arguments for Generalized GNN
     parser.add_argument("--hidden_dim", type=int, default=64, help="Hidden dimension size (default: 64)")
     parser.add_argument("--num_layers", type=int, default=2, help="Number of layers (default: 2)")
-    parser.add_argument("--variant", choices=["gcn", "sage", "gat"], default="gcn", help="GNN variant (default: 'gcn')")
+    parser.add_argument("--variant", choices=["gcn", "sage", "gat"], default="gat", help="GNN variant (default: 'gcn')")
     parser.add_argument("--dropout", type=float, default=0.5, help="Dropout rate (default: 0.5)")
     parser.add_argument("--use_residual", action="store_true", help="Enable residual connections")
     parser.add_argument("--use_layer_norm", action="store_true", help="Enable layer normalization")
@@ -73,9 +73,17 @@ def main():
         evaluator.evaluate()
 
     elif args.action == "cross_test":
-        cross_evaluator = CrossDatasetEvaluator(Config,
-                                                default_handling=args.default_handling,
-                                                model_type=args.model_type)
+        cross_evaluator = CrossDatasetEvaluator(
+            config=Config,
+            model_type=args.model_type,
+            hidden_dim=args.hidden_dim,
+            num_layers=args.num_layers,
+            variant=args.variant,
+            dropout=args.dropout,
+            use_residual=args.use_residual,
+            use_layer_norm=args.use_layer_norm,
+            model_path=args.model_path,
+        )
         cross_evaluator.evaluate()
 
     else:
