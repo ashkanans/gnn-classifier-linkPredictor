@@ -8,70 +8,63 @@ from utils.config import Config
 from utils.device import DeviceHandler
 
 
-def train_simple_gnn_model(hidden_dim):
-    # Load the dataset
-    dataset = DatasetLoader("Cora").load()
-    data = dataset[0]
+class GNNTrainer:
+    def __init__(self, model_type, hidden_dim, num_layers=2, variant="gcn", dropout=0.5, use_residual=False,
+                 use_layer_norm=False):
+        self.model_type = model_type
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        self.variant = variant
+        self.dropout = dropout
+        self.use_residual = use_residual
+        self.use_layer_norm = use_layer_norm
 
-    # Move data to the device
-    device = DeviceHandler.get_device()
-    data = DeviceHandler.move_data_to_device(data, device)
+        # Load the dataset
+        self.dataset = DatasetLoader("Cora").load()
+        self.data = self.dataset[0]
 
-    # Initialize the simple GNN model and move to device
-    model = GNNModel(input_dim=dataset.num_features, hidden_dim=hidden_dim, output_dim=dataset.num_classes)
-    model, device = DeviceHandler.move_model_to_device(model)
+        # Move data to the device
+        self.device = DeviceHandler.get_device()
+        self.data = DeviceHandler.move_data_to_device(self.data, self.device)
 
-    optimizer = optim.Adam(model.parameters(), lr=Config.LEARNING_RATE, weight_decay=Config.WEIGHT_DECAY)
+        # Initialize the appropriate model
+        self.model = self._initialize_model()
+        self.model, self.device = DeviceHandler.move_model_to_device(self.model)
 
-    # Training loop
-    model.train()
-    for epoch in range(Config.EPOCHS):
-        optimizer.zero_grad()
-        out = model(data)
-        loss = torch.nn.functional.nll_loss(out[data.train_mask], data.y[data.train_mask])
-        loss.backward()
-        optimizer.step()
-        print(f"Epoch {epoch + 1}/{Config.EPOCHS}, Loss: {loss.item():.4f}")
+        # Define the optimizer
+        self.optimizer = optim.Adam(self.model.parameters(), lr=Config.LEARNING_RATE, weight_decay=Config.WEIGHT_DECAY)
 
-    # Save the trained model
-    torch.save(model.state_dict(), Config.MODEL_SAVE_PATH)
-    print("Simple GNN model saved to", Config.MODEL_SAVE_PATH)
+    def _initialize_model(self):
+        """Initializes and returns the appropriate model based on the model type."""
+        if self.model_type == "simple":
+            return GNNModel(input_dim=self.dataset.num_features, hidden_dim=self.hidden_dim,
+                            output_dim=self.dataset.num_classes)
+        elif self.model_type == "generalized":
+            return GeneralizedGNN(
+                input_dim=self.dataset.num_features,
+                hidden_dim=self.hidden_dim,
+                output_dim=self.dataset.num_classes,
+                num_layers=self.num_layers,
+                variant=self.variant,
+                dropout=self.dropout,
+                use_residual=self.use_residual,
+                use_layer_norm=self.use_layer_norm
+            )
+        else:
+            raise ValueError(f"Unsupported model type: {self.model_type}")
 
+    def train(self):
+        """Trains the model."""
+        print(f"\nStarting training for {self.model_type.capitalize()} GNN model...")
+        self.model.train()
+        for epoch in range(Config.EPOCHS):
+            self.optimizer.zero_grad()
+            out = self.model(self.data)
+            loss = torch.nn.functional.nll_loss(out[self.data.train_mask], self.data.y[self.data.train_mask])
+            loss.backward()
+            self.optimizer.step()
+            print(f"Epoch {epoch + 1}/{Config.EPOCHS}, Loss: {loss.item():.4f}")
 
-def train_generalized_gnn_model(variant, num_layers, hidden_dim, dropout, use_residual, use_layer_norm):
-    # Load the dataset
-    dataset = DatasetLoader("Cora").load()
-    data = dataset[0]
-
-    # Move data to the device
-    device = DeviceHandler.get_device()
-    data = DeviceHandler.move_data_to_device(data, device)
-
-    # Initialize the generalized GNN model and move to device
-    model = GeneralizedGNN(
-        input_dim=dataset.num_features,
-        hidden_dim=hidden_dim,
-        output_dim=dataset.num_classes,
-        num_layers=num_layers,
-        variant=variant,
-        dropout=dropout,
-        use_residual=use_residual,
-        use_layer_norm=use_layer_norm,
-    )
-    model, device = DeviceHandler.move_model_to_device(model)
-
-    optimizer = optim.Adam(model.parameters(), lr=Config.LEARNING_RATE, weight_decay=Config.WEIGHT_DECAY)
-
-    # Training loop
-    model.train()
-    for epoch in range(Config.EPOCHS):
-        optimizer.zero_grad()
-        out = model(data)
-        loss = torch.nn.functional.nll_loss(out[data.train_mask], data.y[data.train_mask])
-        loss.backward()
-        optimizer.step()
-        print(f"Epoch {epoch + 1}/{Config.EPOCHS}, Loss: {loss.item():.4f}")
-
-    # Save the trained model
-    torch.save(model.state_dict(), Config.MODEL_SAVE_PATH)
-    print("Generalized GNN model saved to", Config.MODEL_SAVE_PATH)
+        # Save the trained model
+        torch.save(self.model.state_dict(), Config.MODEL_SAVE_PATH)
+        print(f"{self.model_type.capitalize()} GNN model saved to", Config.MODEL_SAVE_PATH)
