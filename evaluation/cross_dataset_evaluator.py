@@ -2,24 +2,53 @@ import torch
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 from data.dataset_loader import DatasetLoader
+from models.generalized_gnn import GeneralizedGNN
 from models.gnn_model import GNNModel
-from utils.config import Config
 from utils.dimensionality_handler import zero_pad_features, replicate_features, DimensionalityReducer
 
 
 class CrossDatasetEvaluator:
-    def __init__(self, config, datasets=["CiteSeer", "PubMed"], default_handling="auto"):
+    def __init__(
+            self,
+            config,
+            datasets=["CiteSeer", "PubMed"],
+            default_handling="auto",
+            model_type="simple",
+            hidden_dim=64,
+            num_layers=2,
+            variant="gcn",
+            dropout=0.5,
+            use_residual=False,
+            use_layer_norm=False,
+            model_path="models/gnn_model.pth",
+    ):
         self.config = config
         self.datasets = datasets
         self.default_handling = default_handling
 
-        # Load trained model
-        self.model = GNNModel(
-            input_dim=config.INPUT_DIM,
-            hidden_dim=config.HIDDEN_DIM,
-            output_dim=config.OUTPUT_DIM,
-        )
-        self.model.load_state_dict(torch.load(self.config.MODEL_SAVE_PATH))
+        # Load the appropriate model based on the model_type
+        if model_type == "simple":
+            self.model = GNNModel(
+                input_dim=config.INPUT_DIM,
+                hidden_dim=hidden_dim,
+                output_dim=config.OUTPUT_DIM,
+            )
+        elif model_type == "generalized":
+            self.model = GeneralizedGNN(
+                input_dim=config.INPUT_DIM,
+                hidden_dim=hidden_dim,
+                output_dim=config.OUTPUT_DIM,
+                num_layers=num_layers,
+                variant=variant,
+                dropout=dropout,
+                use_residual=use_residual,
+                use_layer_norm=use_layer_norm,
+            )
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+        # Load the model weights
+        self.model.load_state_dict(torch.load(model_path, weights_only=True))
         self.model.eval()
 
     def evaluate(self):
@@ -72,16 +101,11 @@ class CrossDatasetEvaluator:
 
     def compute_metrics(self, true, pred):
         accuracy = accuracy_score(true, pred)
-        precision = precision_score(true, pred, average="macro")
-        recall = recall_score(true, pred, average="macro")
-        f1 = f1_score(true, pred, average="macro")
+        precision = precision_score(true, pred, average="macro", zero_division=0)
+        recall = recall_score(true, pred, average="macro", zero_division=0)
+        f1 = f1_score(true, pred, average="macro", zero_division=0)
 
         print(f"Accuracy: {accuracy:.4f}")
         print(f"Precision: {precision:.4f}")
         print(f"Recall: {recall:.4f}")
         print(f"F1-Score: {f1:.4f}")
-
-
-if __name__ == "__main__":
-    evaluator = CrossDatasetEvaluator(Config, default_handling="auto")
-    evaluator.evaluate()
