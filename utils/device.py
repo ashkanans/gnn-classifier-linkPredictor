@@ -6,10 +6,6 @@ class DeviceHandler:
     def get_device():
         """Returns the available device (CUDA if available, else CPU)."""
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        if device.type == "cuda":
-            print(f"Using GPU: {torch.cuda.get_device_name(0)}")
-        else:
-            print("Using CPU")
         return device
 
     @staticmethod

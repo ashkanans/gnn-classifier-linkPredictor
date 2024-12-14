@@ -1,3 +1,5 @@
+import os.path
+
 import torch
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
@@ -6,11 +8,13 @@ from models.generalized_gnn import GeneralizedGNN
 from models.gnn_model import GNNModel
 from utils.device import DeviceHandler  # Import the DeviceHandler
 from utils.dimensionality_handler import zero_pad_features, replicate_features, DimensionalityReducer
+from utils.model_saver import ModelSaver
 
 
 class CrossDatasetEvaluator:
     def __init__(
             self,
+            save_dir,
             config,
             datasets=["CiteSeer", "PubMed"],
             default_handling="auto",
@@ -26,6 +30,7 @@ class CrossDatasetEvaluator:
         self.config = config
         self.datasets = datasets
         self.default_handling = default_handling
+        self.save_dir = save_dir
 
         # Load the appropriate model based on the model_type
         if model_type == "simple":
@@ -50,10 +55,12 @@ class CrossDatasetEvaluator:
 
         # Move model to the appropriate device and load weights
         self.model, self.device = DeviceHandler.move_model_to_device(self.model)
+        model_path = os.path.join(save_dir, "model.pth")
         self.model.load_state_dict(torch.load(model_path, map_location=self.device, weights_only=True))
         self.model.eval()
 
     def evaluate(self):
+        cross_test_results = {}
         for dataset_name in self.datasets:
             print(f"\nEvaluating on {dataset_name} dataset:")
             dataset = DatasetLoader(dataset_name).load()
@@ -66,18 +73,19 @@ class CrossDatasetEvaluator:
             current_dim = data.x.shape[1]
             target_dim = self.config.INPUT_DIM
 
+            handling_technique = "Not needed. Dimensions matched"
             if current_dim < target_dim:
                 print(
                     f"Feature dimension mismatch: Model expects {target_dim}, but dataset has {current_dim} features."
                 )
-                self.handle_lower_dimensions(data, target_dim)
+                handling_technique = self.handle_lower_dimensions(data, target_dim)
                 print(f"Features were adjusted using '{self.default_handling}' to match the model's input dimension.")
 
             elif current_dim > target_dim:
                 print(
                     f"Feature dimension mismatch: Model expects {target_dim}, but dataset has {current_dim} features."
                 )
-                self.handle_higher_dimensions(data, target_dim)
+                handling_technique = self.handle_higher_dimensions(data, target_dim)
                 print(f"Features were reduced using '{self.default_handling}' to match the model's input dimension.")
 
             # Perform inference
@@ -86,15 +94,28 @@ class CrossDatasetEvaluator:
                 pred = logits[data.test_mask].argmax(dim=1)
                 true = data.y[data.test_mask]
 
-            self.compute_metrics(true, pred)
+            metrics = self.compute_metrics(true, pred)
+            cross_test_results[dataset_name] = {
+                "metrics": metrics,
+                "dataset_info": {
+                    "num_nodes": data.x.shape[0],
+                    "num_features": current_dim,
+                    "num_classes": len(data.y.unique())
+                },
+                "dimension_handling": handling_technique
+            }
+
+        ModelSaver.update_metadata(self.save_dir, {"cross_test": cross_test_results})
 
     def handle_lower_dimensions(self, data, target_dim):
         if self.default_handling == "auto" or self.default_handling == "zero_pad":
             print(f"Zero-padding features to match {target_dim} dimensions...")
-            data.x = zero_pad_features(data.x, target_dim).to(self.device)
+            data.x = zero_pad_features(data.x, target_dim)
+            return "zero_pad"
         elif self.default_handling == "replicate":
             print(f"Replicating features to match {target_dim} dimensions...")
-            data.x = replicate_features(data.x, target_dim).to(self.device)
+            data.x = replicate_features(data.x, target_dim)
+            return "replicate"
         else:
             raise ValueError(f"Unsupported handling method for lower dimensions: {self.default_handling}")
 
@@ -102,17 +123,16 @@ class CrossDatasetEvaluator:
         if self.default_handling == "auto" or self.default_handling == "pca":
             print(f"Reducing features using PCA to match {target_dim} dimensions...")
             reducer = DimensionalityReducer(target_dim)
-            data.x = reducer.fit_transform(data.x).to(self.device)
+            data.x = reducer.fit_transform(data.x)
+            return "pca"
         else:
             raise ValueError(f"Unsupported handling method for higher dimensions: {self.default_handling}")
 
-    def compute_metrics(self, true, pred):
-        accuracy = accuracy_score(true.cpu(), pred.cpu())
-        precision = precision_score(true.cpu(), pred.cpu(), average="macro", zero_division=0)
-        recall = recall_score(true.cpu(), pred.cpu(), average="macro", zero_division=0)
-        f1 = f1_score(true.cpu(), pred.cpu(), average="macro", zero_division=0)
 
-        print(f"Accuracy: {accuracy:.4f}")
-        print(f"Precision: {precision:.4f}")
-        print(f"Recall: {recall:.4f}")
-        print(f"F1-Score: {f1:.4f}")
+    def compute_metrics(self, true, pred):
+        return {
+            "accuracy": accuracy_score(true.cpu(), pred.cpu()),
+            "precision": precision_score(true.cpu(), pred.cpu(), average="macro", zero_division=0),
+            "recall": recall_score(true.cpu(), pred.cpu(), average="macro", zero_division=0),
+            "f1_score": f1_score(true.cpu(), pred.cpu(), average="macro", zero_division=0)
+        }

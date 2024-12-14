@@ -1,3 +1,5 @@
+import os.path
+
 import torch
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
@@ -5,17 +7,20 @@ from data.dataset_loader import DatasetLoader
 from models.generalized_gnn import GeneralizedGNN
 from models.gnn_model import GNNModel
 from utils.device import DeviceHandler
+from utils.model_saver import ModelSaver
 
 
 class GNNEvaluator:
-    def __init__(self, dataset_name="Cora", model_type="simple", hidden_dim=64, num_layers=2, variant="gcn",
-                 dropout=0.5, use_residual=False, use_layer_norm=False, model_path="models/gnn_model.pth"):
+    def __init__(self, save_dir, dataset_name="Cora", model_type="simple", hidden_dim=64, num_layers=2, variant="gcn",
+                 dropout=0.5, use_residual=False, use_layer_norm=False):
         self.dataset = DatasetLoader(dataset_name).load()
         self.data = self.dataset[0]
 
         # Move data to the device
         self.device = DeviceHandler.get_device()
         self.data = DeviceHandler.move_data_to_device(self.data, self.device)
+
+        self.save_dir = save_dir
 
         # Load the appropriate model based on the model_type
         if model_type == "simple":
@@ -30,6 +35,7 @@ class GNNEvaluator:
 
         # Move model to the device and load weights
         self.model, _ = DeviceHandler.move_model_to_device(self.model)
+        model_path = os.path.join(save_dir, "model.pth")
         self.model.load_state_dict(torch.load(model_path, map_location=self.device, weights_only=True))
         self.model.eval()
 
@@ -39,15 +45,15 @@ class GNNEvaluator:
             pred = logits[self.data.test_mask].argmax(dim=1)
             true = self.data.y[self.data.test_mask]
 
-        self.compute_metrics(true, pred)
+        metrics = self.compute_metrics(true, pred)
+        print(metrics)
+
+        ModelSaver.update_metadata(self.save_dir, {"evaluation": metrics})
 
     def compute_metrics(self, true, pred):
-        accuracy = accuracy_score(true, pred)
-        precision = precision_score(true, pred, average="macro", zero_division=0)
-        recall = recall_score(true, pred, average="macro", zero_division=0)
-        f1 = f1_score(true, pred, average="macro", zero_division=0)
-
-        print(f"Accuracy: {accuracy:.4f}")
-        print(f"Precision: {precision:.4f}")
-        print(f"Recall: {recall:.4f}")
-        print(f"F1-Score: {f1:.4f}")
+        return {
+            "accuracy": accuracy_score(true.cpu(), pred.cpu()),
+            "precision": precision_score(true.cpu(), pred.cpu(), average="macro", zero_division=0),
+            "recall": recall_score(true.cpu(), pred.cpu(), average="macro", zero_division=0),
+            "f1_score": f1_score(true.cpu(), pred.cpu(), average="macro", zero_division=0)
+        }

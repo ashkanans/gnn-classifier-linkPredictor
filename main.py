@@ -66,14 +66,14 @@ def main():
         if action == "evaluate":
             print("\nStarting evaluation...")
             evaluator = GNNEvaluator(
+                save_dir=trainer.save_dir,
                 model_type=args.model_type,
                 hidden_dim=args.hidden_dim,
                 num_layers=args.num_layers,
                 variant=args.variant,
                 dropout=args.dropout,
                 use_residual=args.use_residual,
-                use_layer_norm=args.use_layer_norm,
-                model_path=args.model_path
+                use_layer_norm=args.use_layer_norm
             )
             evaluator.evaluate()
 
@@ -81,6 +81,7 @@ def main():
             print("\nStarting cross-dataset testing...")
             config = Config()
             cross_evaluator = CrossDatasetEvaluator(
+                save_dir=trainer.save_dir,
                 config=config,
                 model_type=args.model_type,
                 hidden_dim=args.hidden_dim,
