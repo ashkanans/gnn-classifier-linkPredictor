@@ -4,6 +4,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from data.dataset_loader import DatasetLoader
 from models.generalized_gnn import GeneralizedGNN
 from models.gnn_model import GNNModel
+from utils.device import DeviceHandler  # Import the DeviceHandler
 from utils.dimensionality_handler import zero_pad_features, replicate_features, DimensionalityReducer
 
 
@@ -47,8 +48,9 @@ class CrossDatasetEvaluator:
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
-        # Load the model weights
-        self.model.load_state_dict(torch.load(model_path, weights_only=True))
+        # Move model to the appropriate device and load weights
+        self.model, self.device = DeviceHandler.move_model_to_device(self.model)
+        self.model.load_state_dict(torch.load(model_path, map_location=self.device, weights_only=True))
         self.model.eval()
 
     def evaluate(self):
@@ -57,19 +59,24 @@ class CrossDatasetEvaluator:
             dataset = DatasetLoader(dataset_name).load()
             data = dataset[0]
 
+            # Move data to the device
+            data = DeviceHandler.move_data_to_device(data, self.device)
+
             # Handle feature dimension differences
             current_dim = data.x.shape[1]
             target_dim = self.config.INPUT_DIM
 
             if current_dim < target_dim:
                 print(
-                    f"Feature dimension mismatch: Model expects {target_dim}, but dataset has {current_dim} features.")
+                    f"Feature dimension mismatch: Model expects {target_dim}, but dataset has {current_dim} features."
+                )
                 self.handle_lower_dimensions(data, target_dim)
                 print(f"Features were adjusted using '{self.default_handling}' to match the model's input dimension.")
 
             elif current_dim > target_dim:
                 print(
-                    f"Feature dimension mismatch: Model expects {target_dim}, but dataset has {current_dim} features.")
+                    f"Feature dimension mismatch: Model expects {target_dim}, but dataset has {current_dim} features."
+                )
                 self.handle_higher_dimensions(data, target_dim)
                 print(f"Features were reduced using '{self.default_handling}' to match the model's input dimension.")
 
@@ -84,10 +91,10 @@ class CrossDatasetEvaluator:
     def handle_lower_dimensions(self, data, target_dim):
         if self.default_handling == "auto" or self.default_handling == "zero_pad":
             print(f"Zero-padding features to match {target_dim} dimensions...")
-            data.x = zero_pad_features(data.x, target_dim)
+            data.x = zero_pad_features(data.x, target_dim).to(self.device)
         elif self.default_handling == "replicate":
             print(f"Replicating features to match {target_dim} dimensions...")
-            data.x = replicate_features(data.x, target_dim)
+            data.x = replicate_features(data.x, target_dim).to(self.device)
         else:
             raise ValueError(f"Unsupported handling method for lower dimensions: {self.default_handling}")
 
@@ -95,15 +102,15 @@ class CrossDatasetEvaluator:
         if self.default_handling == "auto" or self.default_handling == "pca":
             print(f"Reducing features using PCA to match {target_dim} dimensions...")
             reducer = DimensionalityReducer(target_dim)
-            data.x = reducer.fit_transform(data.x)
+            data.x = reducer.fit_transform(data.x).to(self.device)
         else:
             raise ValueError(f"Unsupported handling method for higher dimensions: {self.default_handling}")
 
     def compute_metrics(self, true, pred):
-        accuracy = accuracy_score(true, pred)
-        precision = precision_score(true, pred, average="macro", zero_division=0)
-        recall = recall_score(true, pred, average="macro", zero_division=0)
-        f1 = f1_score(true, pred, average="macro", zero_division=0)
+        accuracy = accuracy_score(true.cpu(), pred.cpu())
+        precision = precision_score(true.cpu(), pred.cpu(), average="macro", zero_division=0)
+        recall = recall_score(true.cpu(), pred.cpu(), average="macro", zero_division=0)
+        f1 = f1_score(true.cpu(), pred.cpu(), average="macro", zero_division=0)
 
         print(f"Accuracy: {accuracy:.4f}")
         print(f"Precision: {precision:.4f}")
