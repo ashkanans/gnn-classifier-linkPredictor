@@ -13,6 +13,12 @@ def main():
         choices=["train", "evaluate", "cross_test"],
         help="Action to perform",
     )
+    parser.add_argument(
+        "--default_handling",
+        choices=["auto", "pca", "zero_pad", "replicate"],
+        default="auto",
+        help="Default method to handle feature dimension mismatches (auto, pca, zero_pad, replicate)",
+    )
 
     args = parser.parse_args()
 
@@ -23,7 +29,7 @@ def main():
         evaluator = GNNEvaluator(Config)
         evaluator.evaluate()
     elif args.action == "cross_test":
-        cross_evaluator = CrossDatasetEvaluator(Config)
+        cross_evaluator = CrossDatasetEvaluator(Config, default_handling=args.default_handling)
         cross_evaluator.evaluate()
     else:
         print("Invalid action. Use --help for available actions.")
