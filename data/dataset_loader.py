@@ -1,10 +1,9 @@
-import torch
 from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import NormalizeFeatures
 
 
 class DatasetLoader:
-    def __init__(self, dataset_name="Cora", root_dir="data/datasets"):
+    def __init__(self, dataset_name, root_dir="data/datasets"):
         self.dataset_name = dataset_name
         self.root_dir = root_dir
 
@@ -14,9 +13,12 @@ class DatasetLoader:
 
 
 if __name__ == "__main__":
-    loader = DatasetLoader()
-    dataset = loader.load()
-    print(f"Dataset: {dataset}")
-    print(f"Number of graphs: {len(dataset)}")
-    print(f"Number of features: {dataset.num_features}")
-    print(f"Number of classes: {dataset.num_classes}")
+    # Test loading different datasets
+    for name in ["Cora", "CiteSeer", "PubMed"]:
+        loader = DatasetLoader(dataset_name=name)
+        dataset = loader.load()
+        print(f"{name} Dataset:")
+        print(f"Number of graphs: {len(dataset)}")
+        print(f"Number of features: {dataset.num_features}")
+        print(f"Number of classes: {dataset.num_classes}")
+        print("-" * 30)
