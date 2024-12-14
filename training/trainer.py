@@ -7,13 +7,13 @@ from models.gnn_model import GNNModel
 from utils.config import Config
 
 
-def train_simple_gnn_model():
+def train_simple_gnn_model(hidden_dim):
     # Load the dataset
     dataset = DatasetLoader("Cora").load()
     data = dataset[0]
 
     # Initialize the simple GNN model
-    model = GNNModel(input_dim=dataset.num_features, hidden_dim=16, output_dim=dataset.num_classes)
+    model = GNNModel(input_dim=dataset.num_features, hidden_dim=hidden_dim, output_dim=dataset.num_classes)
 
     optimizer = optim.Adam(model.parameters(), lr=Config.LEARNING_RATE, weight_decay=Config.WEIGHT_DECAY)
 

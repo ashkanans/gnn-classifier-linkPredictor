@@ -48,7 +48,7 @@ def main():
     # Perform the specified action
     if args.action == "train":
         if args.model_type == "simple":
-            train_simple_gnn_model()
+            train_simple_gnn_model(hidden_dim=args.hidden_dim)
         elif args.model_type == "generalized":
             train_generalized_gnn_model(
                 variant=args.variant,
