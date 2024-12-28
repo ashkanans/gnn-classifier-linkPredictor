@@ -128,7 +128,6 @@ class CrossDatasetEvaluator:
         else:
             raise ValueError(f"Unsupported handling method for higher dimensions: {self.default_handling}")
 
-
     def compute_metrics(self, true, pred):
         return {
             "accuracy": accuracy_score(true.cpu(), pred.cpu()),

@@ -3,10 +3,13 @@ import itertools
 import os
 import subprocess
 
+from data.dataset_loader import DatasetLoader
 from evaluation.cross_dataset_evaluator import CrossDatasetEvaluator
 from evaluation.evaluator import GNNEvaluator
 from training.trainer import GNNTrainer
+from training.trainer_link_prediction import EdgePredictionTrainer
 from utils.config import Config
+from utils.find_best_models import find_best_models
 
 
 def run_single_execution(args):
@@ -100,8 +103,6 @@ def run_experiments(args):
 
 
 def find_best_model(args):
-    from find_best_models import find_best_models  # Import dynamically to avoid circular dependencies
-
     saved_models_dir = args.saved_models_dir
     best_pubmed, best_citeseer, best_cora = find_best_models(saved_models_dir)
 
@@ -118,11 +119,44 @@ def find_best_model(args):
     print(f"  Accuracy: {best_cora['accuracy']:.4f}")
 
 
+def run_link_prediction(args):
+    """
+    Run link prediction training and evaluation using EdgePredictionTrainer.
+    """
+    print("\nStarting link prediction...")
+
+    # Load the dataset
+    dataset = DatasetLoader(args.dataset).load()
+
+    # Define model configuration
+    model_config = {
+        "input_dim": dataset.num_features,
+        "hidden_dim": args.hidden_dim,
+        "output_dim": args.output_dim,
+        "num_layers": args.num_layers,
+        "variant": args.variant,
+        "dropout": args.dropout,
+        "use_residual": args.use_residual,
+        "use_layer_norm": args.use_layer_norm,
+    }
+
+    # Initialize the trainer
+    trainer = EdgePredictionTrainer(dataset, model_config, lr=0.01, weight_decay=5e-4, val_split=0.1)
+
+    # Perform actions: train and/or evaluate
+    if "train" in args.actions:
+        print("\nStarting training...")
+        trainer.train(epochs=args.epochs)
+
+    if "evaluate" in args.actions:
+        print("\nStarting evaluation...")
+        metrics = trainer.evaluate()
+
+
 def main():
     parser = argparse.ArgumentParser(description="GNN Training, Evaluation, Cross-Testing, and Experimentation")
 
-    # Add subcommands
-    subparsers = parser.add_subparsers(dest="command")
+    subparsers = parser.add_subparsers(dest="command", required=True)
 
     # Single execution parser
     single_parser = subparsers.add_parser("single", help="Run single execution (train, evaluate, cross_test)")
@@ -132,8 +166,8 @@ def main():
     single_parser.add_argument("--num_layers", type=int, default=4)
     single_parser.add_argument("--variant", choices=["gcn", "sage", "gat"], default="gat")
     single_parser.add_argument("--dropout", type=float, default=0.5)
-    single_parser.add_argument("--use_residual", action="store_true", default=True)
-    single_parser.add_argument("--use_layer_norm", action="store_true", default=True)
+    single_parser.add_argument("--use_residual", action="store_true")
+    single_parser.add_argument("--use_layer_norm", action="store_true")
     single_parser.add_argument("--model_path", type=str, default="models/gnn_model.pth")
     single_parser.add_argument("--default_handling", choices=["auto", "pca", "zero_pad", "replicate"], default="auto")
 
@@ -142,8 +176,26 @@ def main():
 
     # Best model finder parser
     best_model_parser = subparsers.add_parser("find_best", help="Find the best model based on saved results")
-    best_model_parser.add_argument("--saved_models_dir", type=str, default="saved_models",
-                                   help="Path to the saved models directory")
+    best_model_parser.add_argument("--saved_models_dir", type=str, default="saved_models")
+
+    # Link Prediction parser
+    link_prediction_parser = subparsers.add_parser("link_prediction",
+                                                   help="Run training and evaluation for link prediction")
+    link_prediction_parser.add_argument("actions", nargs="+", choices=["train", "evaluate"], help="Actions to perform")
+    link_prediction_parser.add_argument("--dataset", type=str, required=True,
+                                        help="Dataset name (e.g., Cora, CiteSeer, PubMed)")
+    link_prediction_parser.add_argument("--hidden_dim", type=int, default=64, help="Hidden layer dimension")
+    link_prediction_parser.add_argument("--output_dim", type=int, default=32, help="Output layer dimension")
+    link_prediction_parser.add_argument("--num_layers", type=int, default=2, help="Number of GNN layers")
+    link_prediction_parser.add_argument("--variant", choices=["gcn", "sage", "gat"], default="gcn", help="GNN variant")
+    link_prediction_parser.add_argument("--dropout", type=float, default=0.5, help="Dropout rate")
+    link_prediction_parser.add_argument("--use_residual", action="store_true", help="Use residual connections")
+    link_prediction_parser.add_argument("--use_layer_norm", action="store_true", help="Use layer normalization")
+    link_prediction_parser.add_argument("--lr", type=float, default=0.01, help="Learning rate")
+    link_prediction_parser.add_argument("--weight_decay", type=float, default=5e-4, help="Weight decay for optimizer")
+    link_prediction_parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
+    link_prediction_parser.add_argument("--device", type=str, default="cuda",
+                                        help="Device for training ('cpu' or 'cuda')")
 
     args = parser.parse_args()
 
@@ -153,6 +205,8 @@ def main():
         run_experiments(args)
     elif args.command == "find_best":
         find_best_model(args)
+    elif args.command == "link_prediction":
+        run_link_prediction(args)
     else:
         parser.print_help()
 
