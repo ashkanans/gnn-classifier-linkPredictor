@@ -53,8 +53,24 @@ class GeneralizedGNN(nn.Module):
         if use_residual:
             self.residual_proj = nn.Linear(input_dim, hidden_dim) if input_dim != hidden_dim else None
 
-    def forward(self, data):
-        x, edge_index = data.x, data.edge_index
+    def forward(self, x=None, edge_index=None, data=None):
+        """
+        Forward method that supports either a single data object or separate x and edge_index.
+
+        Args:
+            data (torch_geometric.data.Data): The full data object containing x and edge_index.
+            x (torch.Tensor): Node features (used if data is None).
+            edge_index (torch.Tensor): Edge indices (used if data is None).
+
+        Returns:
+            torch.Tensor: Output logits for all nodes.
+        """
+        if data is not None:
+            x, edge_index = data.x, data.edge_index
+        elif x is not None and edge_index is not None:
+            pass  # x and edge_index are already provided
+        else:
+            raise ValueError("Either `data` or `x` and `edge_index` must be provided.")
 
         # Initial input projection for residual connections
         if self.use_residual and self.residual_proj is not None:

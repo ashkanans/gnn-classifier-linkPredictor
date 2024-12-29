@@ -3,7 +3,7 @@ import json
 import torch
 
 from data.dataset_loader import DatasetLoader
-from models.generalized_gnn import GeneralizedGNN
+from utils.load_generalized_gnn import load_generalized_gnn
 
 
 def extract_embeddings(model_dir, layer_index=-1):
@@ -20,8 +20,6 @@ def extract_embeddings(model_dir, layer_index=-1):
     """
     # Load metadata
     metadata_path = f"{model_dir}/metadata.json"
-    model_path = f"{model_dir}/model.pth"
-
     with open(metadata_path, "r") as f:
         metadata = json.load(f)
 
@@ -30,25 +28,8 @@ def extract_embeddings(model_dir, layer_index=-1):
     dataset = DatasetLoader(dataset_name).load()
     data = dataset[0]
 
-    # Move data to device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    data = data.to(device)
-
-    # Initialize model based on metadata
-    model = GeneralizedGNN(
-        input_dim=metadata["dataset"]["num_features"],
-        hidden_dim=metadata["hidden_dim"],
-        output_dim=metadata["dataset"]["num_classes"],
-        num_layers=metadata["num_layers"],
-        variant=metadata["variant"],
-        dropout=metadata["dropout"],
-        use_residual=metadata["use_residual"],
-        use_layer_norm=metadata["use_layer_norm"]
-    ).to(device)
-
-    # Load model weights
-    model.load_state_dict(torch.load(model_path))
-    model.eval()
+    # Initialize model
+    model = load_generalized_gnn(model_dir)
 
     # Extract embeddings
     hooks = []
@@ -65,4 +46,4 @@ def extract_embeddings(model_dir, layer_index=-1):
     for hook in hooks:
         hook.remove()
 
-    return embeddings[0].cpu(), data.y.cpu()
+    return embeddings[0], data.y

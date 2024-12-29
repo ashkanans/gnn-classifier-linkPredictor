@@ -60,7 +60,7 @@ class GNNTrainer:
         self.model.train()
         for epoch in range(Config.EPOCHS):
             self.optimizer.zero_grad()
-            out = self.model(self.data)
+            out = self.model(data=self.data)
             loss = torch.nn.functional.nll_loss(out[self.data.train_mask], self.data.y[self.data.train_mask])
             loss.backward()
             self.optimizer.step()

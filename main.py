@@ -8,11 +8,13 @@ from embeddings.analyze_embeddings import extract_embeddings
 from embeddings.visualize_embeddings import visualize_embeddings
 from evaluation.cross_dataset_evaluator import CrossDatasetEvaluator
 from evaluation.evaluator import GNNEvaluator
+from models.gnn_explainer import GNNExplainability
 from models.node2vec_model import Node2VecModel
 from training.trainer import GNNTrainer
 from training.trainer_link_prediction import EdgePredictionTrainer
 from utils.config import Config
 from utils.find_best_models import find_best_models
+from utils.load_generalized_gnn import load_generalized_gnn
 from utils.prepare_link_prediction_data import prepare_link_prediction_data
 
 
@@ -154,7 +156,7 @@ def run_link_prediction(args):
 
     if "evaluate" in args.actions:
         print("\nStarting evaluation...")
-        metrics = trainer.evaluate()
+        trainer.evaluate()
 
 
 def analyze_and_visualize_embeddings(args):
@@ -212,6 +214,25 @@ def run_node2vec(args):
         metrics = node2vec.evaluate_link_prediction(embeddings, pos_edge_index, neg_edge_index)
         print("\nLink Prediction Metrics:")
         print(metrics)
+
+
+def run_explainability(args):
+    # Load dataset
+    dataset = DatasetLoader(args.dataset).load()
+    data = dataset[0]
+
+    # Load the model
+    model = load_generalized_gnn(args.model_path)
+    model.eval()
+
+    # Run explainability
+    explainer = GNNExplainability(model, data)
+
+    if args.node_idx is not None:
+        explanation = explainer.explain_node(args.node_idx)
+        explainer.visualize_node(args.node_idx, explanation["edge_mask"], path=args.output_path)
+    else:
+        explainer.explain_all_nodes(num_nodes=args.num_nodes)
 
 
 def main():
@@ -281,6 +302,33 @@ def main():
                                  required=True)
     node2vec_parser.set_defaults(func=run_node2vec)
 
+    explain_parser = subparsers.add_parser("explain", help="Run GNN explainability")
+
+    # Default dataset and model path for demonstration
+    explain_parser.add_argument("--dataset", default="Cora", help="Dataset name (default: Cora)")
+    explain_parser.add_argument("--model_path", default="saved_models/generalized_20241216_094023",
+                                help="Path to the trained model (default: saved_models/generalized_20241216_094023)")
+
+    # GNN model configuration
+    explain_parser.add_argument("--hidden_dim", type=int, default=64, help="Hidden dimension size (default: 64)")
+    explain_parser.add_argument("--num_layers", type=int, default=2, help="Number of GNN layers (default: 2)")
+    explain_parser.add_argument("--variant", choices=["gcn", "sage", "gat"], default="gcn",
+                                help="GNN variant (default: gcn)")
+    explain_parser.add_argument("--dropout", type=float, default=0.5, help="Dropout rate (default: 0.5)")
+    explain_parser.add_argument("--use_residual", action="store_true", help="Use residual connections (default: False)")
+    explain_parser.add_argument("--use_layer_norm", action="store_true",
+                                help="Use layer normalization (default: False)")
+
+    # Explanation options
+    explain_parser.add_argument("--node_idx", type=int, default=None,
+                                help="Node index to explain (optional, default: None)")
+    explain_parser.add_argument("--num_nodes", type=int, default=5,
+                                help="Number of nodes to explain if node_idx is not provided (default: 5)")
+    explain_parser.add_argument("--output_path", type=str, default=None,
+                                help="Path to save explanation visualization (default: None)")
+
+    explain_parser.set_defaults(func=run_explainability)
+
     args = parser.parse_args()
 
     if args.command == "single":
@@ -295,6 +343,8 @@ def main():
         analyze_and_visualize_embeddings(args)
     elif args.command == "node2vec":
         run_node2vec(args)
+    elif args.command == "explain":
+        run_explainability(args)
     else:
         parser.print_help()
 
