@@ -4,6 +4,8 @@ import os
 import subprocess
 
 from data.dataset_loader import DatasetLoader
+from embeddings.analyze_embeddings import extract_embeddings
+from embeddings.visualize_embeddings import visualize_embeddings
 from evaluation.cross_dataset_evaluator import CrossDatasetEvaluator
 from evaluation.evaluator import GNNEvaluator
 from training.trainer import GNNTrainer
@@ -153,6 +155,21 @@ def run_link_prediction(args):
         metrics = trainer.evaluate()
 
 
+def analyze_and_visualize_embeddings(args):
+    print("\nExtracting embeddings...")
+    embeddings, labels = extract_embeddings(
+        model_dir=args.model_path,
+        layer_index=-1
+    )
+
+    print("\nVisualizing embeddings...")
+    visualize_embeddings(
+        embeddings=embeddings,
+        labels=labels,
+        method=args.method,
+        output_path=args.output_path
+    )
+
 def main():
     parser = argparse.ArgumentParser(description="GNN Training, Evaluation, Cross-Testing, and Experimentation")
 
@@ -197,6 +214,18 @@ def main():
     link_prediction_parser.add_argument("--device", type=str, default="cuda",
                                         help="Device for training ('cpu' or 'cuda')")
 
+    # Add this to the `main` function
+    embedding_parser = subparsers.add_parser(
+        "analyze_embeddings", help="Extract and visualize node embeddings"
+    )
+    embedding_parser.add_argument("--model_path", help="Path to the trained model",
+                                  default="saved_models/generalized_20241216_094023")
+    embedding_parser.add_argument("--dataset", help="Dataset name (e.g., Cora)", default="Cora")
+    embedding_parser.add_argument("--method", choices=["pca", "tsne"], default="pca", help="Reduction method")
+    embedding_parser.add_argument("--layer_index", type=int, default=-1, help="Layer index to extract embeddings from")
+    embedding_parser.add_argument("--output_path", type=str, default=None, help="Path to save the plot")
+    embedding_parser.set_defaults(func=analyze_and_visualize_embeddings)
+
     args = parser.parse_args()
 
     if args.command == "single":
@@ -207,6 +236,8 @@ def main():
         find_best_model(args)
     elif args.command == "link_prediction":
         run_link_prediction(args)
+    elif args.command == "analyze_embeddings":
+        analyze_and_visualize_embeddings(args)
     else:
         parser.print_help()
 

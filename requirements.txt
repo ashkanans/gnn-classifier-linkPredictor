@@ -3,3 +3,4 @@ torch_geometric
 torch-sparse
 torch-scatter
 scikit-learn
+matplotlib
