@@ -41,7 +41,7 @@ def extract_embeddings(model_dir, layer_index=-1):
     hooks.append(model.layers[layer_index].register_forward_hook(hook_fn))
 
     with torch.no_grad():
-        model(data)
+        model(data=data)
 
     for hook in hooks:
         hook.remove()

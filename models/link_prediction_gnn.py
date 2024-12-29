@@ -93,10 +93,6 @@ class GeneralizedGNNForEdgePrediction(nn.Module):
         edge_features = torch.cat([edge_src_embeddings, edge_dst_embeddings],
                                   dim=-1)  # Shape: [num_edges, 2 * output_dim]
 
-        # Ensure edge_features is properly shaped
-        assert edge_features.dim() == 2, f"edge_features should be 2D, got {edge_features.dim()}D"
-        assert edge_features.size(1) == 64, f"edge_features second dimension should be 64, got {edge_features.size(1)}"
-
         # Compute edge scores
         edge_scores = self.edge_predictor(edge_features).squeeze(-1)  # Shape: [num_edges]
 

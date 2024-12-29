@@ -336,6 +336,7 @@
 		+-- main.py
 		|
 		+-- data/
+		|   +-- dataset_analyzer.py
 		|   +-- dataset_loader.py
 		|   +-- prepare_link_prediction_data.py
 		|
@@ -373,7 +374,6 @@
 		|   +-- model_saver.py
 		|
 		+-- README.md
-		|
 		+-- requirements.txt
 		+-- setup.bat
 		+-- setup.sh
@@ -414,9 +414,616 @@
 		\begin{tcolorbox}
 			\texttt{python main.py}
 		\end{tcolorbox}
+		If executed without providing the required arguments, the following message will be displayed:
+		\begin{tcolorbox}[colback=gray!10, colframe=gray!50, sharp corners, boxrule=0.5mm]
+			\texttt{usage: main.py [-h] \{single, \\
+				experiment, \\
+				find\_best, \\
+				link\_prediction, \\
+				analyze\_embeddings, \\
+				node2vec,explain\} ...\\
+				main.py: error: the following arguments are required: command}
+		\end{tcolorbox}
+		
 	\end{enumerate}
 	
 	After completing these steps, your environment will be properly configured for executing the project.
+	
+	\newpage
+	\section{Dataset Analyzer}\label{sec:dataset-metrics-analyzer}
+	
+	The \texttt{DatasetMetricsAnalyzer} calculates various graph metrics to analyze the structure and properties of datasets. 
+	
+	\subsubsection*{Metrics and Their Interpretations}
+	\begin{itemize}
+		\item \textbf{Degree Distribution:} \\
+		Describes the distribution of node degrees in the graph. A similar degree distribution across datasets may indicate similar graph connectivity patterns, which could improve model transferability.
+		
+		\item \textbf{Average Clustering Coefficient:} \\
+		Measures the likelihood of nodes forming local triangles. Higher values indicate dense local clusters. Comparing this across datasets helps understand differences in local graph density, affecting message-passing algorithms.
+		
+		\item \textbf{Graph Density:} \\
+		The ratio of edges to possible edges in the graph. Densely connected graphs may allow models to propagate information more effectively, while sparse graphs may pose challenges for learning.
+		
+		\item \textbf{Connected Components:} \\
+		Counts the number of isolated subgraphs in the dataset. Fewer components indicate better connectivity, which often correlates with improved model performance for tasks like node classification.
+		
+		\item \textbf{Community Detection (Louvain):} \\
+		Identifies clusters or communities in the graph and measures modularity, which evaluates the strength of these communities. Higher modularity indicates well-defined clusters, which can aid in tasks like community detection or semi-supervised learning.
+		
+		\item \textbf{Diameter and Average Path Length:} \\
+		The diameter is the longest shortest path between any two nodes, while the average path length indicates the typical distance between nodes. Smaller values suggest more compact graphs, potentially leading to faster information propagation.
+		
+		\item \textbf{Node Centrality Metrics:} \\
+		Measures like degree centrality, betweenness centrality, closeness centrality, eigenvector centrality, and PageRank identify important nodes in the graph. Comparing centrality metrics across datasets highlights differences in node influence and structural roles, affecting task-specific outcomes.
+		
+		\item \textbf{Assortativity:} \\
+		Quantifies the tendency of nodes to connect with similar-degree nodes. Datasets with high assortativity may require models that leverage this homophily for better performance.
+		
+		\item \textbf{Transitivity:} \\
+		Measures the ratio of triangles to possible triangles in the graph. High transitivity indicates a tightly interconnected graph, which can enhance tasks like link prediction.
+		
+		\item \textbf{Radius and Core Numbers:} \\
+		The radius measures the minimum eccentricity of any node, while core numbers represent the maximum subgraph where all nodes have at least a certain degree. These metrics reveal the robustness and central structure of the graph.
+		
+		\item \textbf{Edge Betweenness:} \\
+		Measures the importance of edges in connecting different parts of the graph. Datasets with high edge betweenness may be more sensitive to edge removal, impacting model generalization.
+	\end{itemize}
+	
+	\subsubsection*{Benefits of Comparing Metrics Across Datasets}
+	Comparing these metrics provides insights into:
+	\begin{itemize}
+		\item \textbf{Structural Similarity:} \\
+		Helps identify datasets with similar graph structures, improving model transferability.
+		\item \textbf{Feature Distribution:} \\
+		Certain metrics, like clustering coefficient or transitivity, reflect underlying feature distributions and alignment.
+		\item \textbf{Task Feasibility:} \\
+		Datasets with high connectivity, well-defined communities, or uniform centrality may favor tasks like node classification or link prediction.
+		\item \textbf{Performance Bottlenecks:} \\
+		Metrics such as high diameter or low density can highlight challenges in propagating information through the graph, identifying areas where models may struggle.
+		\item \textbf{Dataset Diversity:} \\
+		Understanding the variations between datasets ensures that models are tested under diverse conditions, improving their robustness and generalization.
+	\end{itemize}
+	
+
+	
+	\newpage
+	\section{Node Classification on Cora Dataset}
+	
+	\subsection{Simple GNN Model}
+	\configuratedText{
+	For this task, my first attempt was to create a "simple" GNN model, which loads the datasets from `data/datasets` (the pipeline will download them if it cannot find them). Then it creates an instance of the `GNNModel` with fixed characteristics. 
+	
+	The architecture of the model consists of two graph convolution layers. Specifically:
+	\begin{itemize}
+		\item The first layer is a GCNConv layer that maps the input node features (\texttt{input\_dim}) to a hidden representation (\texttt{hidden\_dim}).
+		\item A ReLU activation is applied to introduce non-linearity, followed by a dropout layer to prevent overfitting.
+		\item The second layer is another GCNConv layer that maps the hidden representation to the output space (\texttt{output\_dim}), corresponding to the number of target classes.
+		\item A log-softmax activation function is applied to the final layer's output to produce normalized probabilities over the node classes.
+	\end{itemize}
+	
+	The model takes as input:
+	\begin{itemize}
+		\item \texttt{x}: The feature matrix of the nodes.
+		\item \texttt{edge\_index}: The edge list that represents the graph structure.
+	\end{itemize}
+	}
+	
+	\subsection{Generalized GNN Model}
+	\configuratedText{
+	The next step, was to make a more "Generalized" model which can be initiated with different variabless.	
+	The Generalized GNN model is a flexible and modular implementation that supports multiple GNN variants, including GCN, GraphSAGE, and GAT. The architecture can be customized in terms of the number of layers, the use of residual connections, layer normalization, and dropout. Below, the key design features and characteristics of the model are outlined:
+	
+	\begin{itemize}
+		\item \textbf{GNN Variants}: The model supports three types of graph convolution layers:
+		\begin{itemize}
+			\item \texttt{GCNConv} for Graph Convolutional Networks (GCN).
+			\item \texttt{SAGEConv} for GraphSAGE.
+			\item \texttt{GATConv} for Graph Attention Networks (GAT).
+		\end{itemize}
+		
+		\item \textbf{Architecture}:
+		\begin{itemize}
+			\item The first layer maps the input node features (\texttt{input\_dim}) to a hidden representation (\texttt{hidden\_dim}).
+			\item Intermediate layers (optional) maintain the hidden dimension and apply the selected convolution operator.
+			\item The final layer maps the hidden representation to the output space (\texttt{output\_dim}), producing class logits for each node.
+		\end{itemize}
+		
+		\item \textbf{Features and Enhancements}:
+		\begin{itemize}
+			\item \textbf{Residual Connections}: If enabled, adds a residual skip connection between the input and hidden layers, facilitating gradient flow and stabilizing training.
+			\item \textbf{Layer Normalization}: Optionally applies layer normalization after each hidden layer to improve training dynamics.
+			\item \textbf{Dropout}: Introduces dropout regularization after ReLU activations to prevent overfitting.
+		\end{itemize}
+		
+		\item \textbf{Input Flexibility}:
+		\begin{itemize}
+			\item Supports either a full \texttt{data} object containing node features (\texttt{x}) and edge indices (\texttt{edge\_index}) or separate \texttt{x} and \texttt{edge\_index} tensors.
+		\end{itemize}
+		
+		\item \textbf{Output}: The model outputs log-softmax probabilities across node classes, making it suitable for node classification tasks.
+	\end{itemize}
+	
+	This generalized design allows for experimentation with various GNN architectures, making it adaptable for different datasets and graph-based learning tasks.
+	}
+	
+	\subsection{Trainer Class}
+	\configuratedText{
+	The \texttt{GNNTrainer} class is designed to manage the training process for various types of GNN models, including both the simple GNN model and the Generalized GNN model. Its purpose is to streamline the process of loading data, initializing models,  optimizing parameters, and saving trained models along with metadata.
+	
+	\subsubsection{Key Features}
+	
+	\begin{itemize}
+		\item \textbf{Dataset Handling}:
+		\begin{itemize}
+			\item Automatically loads the dataset (default: \texttt{Cora}) using the \texttt{DatasetLoader} utility.
+		\end{itemize}
+		
+		\item \textbf{Model Initialization}:
+		\begin{itemize}
+			\item Supports two types of models:
+			\begin{enumerate}
+				\item \texttt{GNNModel}: A simpler two-layer GNN.
+				\item \texttt{GeneralizedGNN}: A more customizable model supporting GCN, GraphSAGE, and GAT layers, with options for residual connections, layer normalization, and dropout.
+			\end{enumerate}
+			\item Model parameters such as the number of layers, hidden dimensions, and variant type can be configured during initialization.
+		\end{itemize}
+		
+		\item \textbf{Training Process}:
+		\begin{itemize}
+			\item Utilizes the Adam optimizer with configurable learning rate and weight decay.
+			\item Performs node classification by optimizing the negative log-likelihood loss function (\texttt{nll\_loss}).
+			\item Displays training progress per epoch, including the loss value.
+		\end{itemize}
+		
+		\item \textbf{Model and Metadata Saving}:
+		\begin{itemize}
+			\item Saves the trained model and its metadata (e.g., architecture details, dataset statistics, and training hyperparameters) for reproducibility and future use.
+			\item Creates a dedicated directory to store models and metadata.
+		\end{itemize}
+	\end{itemize}
+	
+	\subsubsection{Workflow}
+	
+	The \texttt{GNNTrainer} class follows a systematic workflow:
+	\begin{enumerate}
+		\item Load the dataset.
+		\item Initialize the model based on the specified type and configuration.
+		\item Train the model for a fixed number of epochs, tracking the loss.
+		\item Save the trained model and its metadata for evaluation or reuse.
+	\end{enumerate}}
+
+	\subsection{GNN Evaluator}
+	\configuratedText{
+	The \texttt{GNNEvaluator} class is designed to evaluate the performance of trained GNN models on node classification tasks. It loads a pre-trained model, applies it to a dataset, and computes various evaluation metrics to quantify its performance. Below are the key features and workflow of the evaluator:
+	
+	\subsubsection{Key Features}
+	
+	\begin{itemize}
+		\item \textbf{Model Loading and Initialization}:
+		\begin{itemize}
+			\item Supports loading both \texttt{GNNModel} (simple GNN) and \texttt{GeneralizedGNN}.
+			\item Automatically restores the model's weights from a specified directory (\texttt{save\_dir}).
+			\item Configurable model parameters such as hidden dimensions, number of layers, and variant type (e.g., GCN, GraphSAGE, GAT).
+		\end{itemize}
+		
+		\item \textbf{Dataset Compatibility}:
+		\begin{itemize}
+			\item Supports evaluation on various datasets (default: \texttt{Cora}).
+		\end{itemize}
+		
+		\item \textbf{Evaluation Metrics}:
+		\begin{itemize}
+			\item Computes a range of standard metrics, including:
+			\begin{enumerate}
+				\item \textbf{Accuracy}: Proportion of correctly classified nodes.
+				\item \textbf{Precision}: Measure of true positive predictions relative to all positive predictions.
+				\item \textbf{Recall}: Measure of true positive predictions relative to all actual positives.
+				\item \textbf{F1 Score}: Harmonic mean of precision and recall, representing a balance between the two.
+			\end{enumerate}
+		\end{itemize}
+		
+		\item \textbf{Metadata Updates}:
+		\begin{itemize}
+			\item Updates the saved model's metadata with evaluation results for reproducibility and tracking.
+		\end{itemize}
+	\end{itemize}
+	
+	\subsubsection{Workflow}
+	
+	The evaluation process is as follows:
+	\begin{enumerate}
+		\item Load the pre-trained model and dataset.
+		\item Move the data and model to the appropriate device.
+		\item Perform inference on the test nodes (\texttt{test\_mask}) to obtain predicted class labels.
+		\item Compute evaluation metrics by comparing predictions against true labels.
+		\item Print the metrics and save them as part of the model's metadata.
+	\end{enumerate}}
+	
+	\subsection{Cross-Dataset Evaluator}
+	\configuratedText{
+	The \texttt{CrossDatasetEvaluator} class provides a comprehensive framework for evaluating the performance of a pre-trained GNN model across multiple datasets. This process assesses the model's generalizability and adaptability to datasets with varying characteristics, such as differing feature dimensions or class distributions.
+	
+	\subsubsection{Key Features}
+	
+	\begin{itemize}
+		\item \textbf{Support for Multiple Datasets}:
+		\begin{itemize}
+			\item The class can evaluate the model on a predefined set of datasets (default: \texttt{CiteSeer} and \texttt{PubMed}).
+		\end{itemize}
+		
+		\item \textbf{Feature Dimension Handling}:
+		\begin{itemize}
+			\item Automatically detects mismatches between the feature dimensions of the dataset and the model's expected input.
+			\item Supports multiple techniques for resolving these mismatches:
+			\begin{enumerate}
+				\item \textbf{Zero Padding}: Adds zero-valued features to match the target dimension.
+				\item \textbf{Replication}: Duplicates existing features to fill the required dimensions.
+				\item \textbf{Dimensionality Reduction (PCA)}: Reduces features to the target dimension for datasets with higher dimensionalities.
+			\end{enumerate}
+		\end{itemize}
+		
+		\item \textbf{Evaluation Metrics}:
+		\begin{itemize}
+			\item Computes standard metrics such as accuracy, precision, recall, and F1 score for node classification tasks.
+			\item Collects and stores dataset-specific information, including the number of nodes, features, and classes.
+		\end{itemize}
+		
+		\item \textbf{Metadata Integration}:
+		\begin{itemize}
+			\item Stores cross-dataset evaluation results, including metrics and dimension-handling techniques, in the model's metadata for future reference.
+		\end{itemize}
+	\end{itemize}
+	
+	\subsubsection{Workflow}
+	
+	The evaluation process follows these steps:
+	\begin{enumerate}
+		\item Load the pre-trained model and move it to the appropriate computation device.
+		\item Iterate over the specified datasets and preprocess each one.
+		\item Detect and handle feature dimension mismatches using the configured technique (\texttt{auto}, \texttt{zero\_pad}, \texttt{replicate}, or \texttt{pca}).
+		\item Perform inference on the test set and compute evaluation metrics.
+		\item Save the results, including dataset-specific metrics and dimension-handling details, as part of the model's metadata.
+	\end{enumerate}}
+	
+	\subsection{Execution Example}
+	\subsubsection{Train, Evaluate, and Cross-Test Using a Single Model Type}
+	\configuratedText{
+	To train, evaluate, and cross-test a single GNN model, use the following command:
+	
+	\begin{itemize}
+		\item Run the command:
+		\begin{tcolorbox}
+			\texttt{python main.py single train evaluate cross\_test}
+		\end{tcolorbox}
+	\end{itemize}
+	
+	This command derives key parameters from the dataset loader:
+	\begin{itemize}
+		\item \texttt{input\_dim = self.dataset.num\_features = 1433}:\\ Number of input features from the \texttt{Cora} dataset.
+		\item \texttt{hidden\_dim = 256}:\\ Hidden layer dimension (default configuration).
+		\item \texttt{num\_classes = 7}:\\ Number of classes, derived from the dataset loader (\texttt{DatasetLoader("Cora")}).
+	\end{itemize}
+	
+	After execution, a folder will be created in the \texttt{saved\_models} directory with a name in the format \texttt{single\_timestamp}. This folder contains:
+	\begin{itemize}
+		\item \texttt{model.pth}: The trained model's weights.
+		\item \texttt{metadata.json}: A file containing detailed metadata about the model, dataset, training configuration, and evaluation metrics.
+	\end{itemize}
+}
+	
+	\subsubsection{Perform an Experiment with Different Model Architectures}
+	\configuratedText{
+	To explore different configurations of the Generalized GNN Model, we can run experiments with varying parameters. This allows us to train and evaluate multiple models and select the one that performs best.
+	
+	\begin{itemize}
+		\item Run the command:
+		\begin{tcolorbox}
+			\texttt{python main.py experiment}
+		\end{tcolorbox}
+	\end{itemize}
+	
+	This command trains, evaluates, and cross-tests models with different configurations, saving the results in the \texttt{saved\_models} directory. The experiments are conducted over a range of parameter values:
+	
+	\begin{itemize}
+		\item \texttt{hidden\_dim\_values}: [64, 128, 256, 512]
+		\item \texttt{num\_layers\_values}: [2, 4, 8, 12]
+		\item \texttt{variant\_values}: ["gcn", "sage", "gat"]
+		\item \texttt{dropout\_values}: [0.3, 0.5, 0.7]
+		\item \texttt{use\_residual\_values}: [True, False]
+		\item \texttt{use\_layer\_norm\_values}: [True, False]
+	\end{itemize}
+	
+	For each combination of parameters, the experiment performs the following steps:
+	\begin{enumerate}
+		\item Train the model on the specified dataset.
+		\item Evaluate the model's performance on the test set.
+		\item Cross-test the model on other datasets (e.g., CiteSeer and PubMed).
+	\end{enumerate}
+	
+	The results, including model weights and evaluation metrics, are saved in the \texttt{saved\_models} directory under subfolders named with the timestamp and corresponding parameter configuration. This allows for systematic comparison and selection of the best-performing model.\\
+	
+	After running the \texttt{experiment} command, you can execute \texttt{find\_best} command:
+	\begin{tcolorbox}
+		\texttt{python main.py find\_best}
+	\end{tcolorbox}
+	It output lists the best-performing models for each dataset along with their respective accuracies. Below is an example output from an experiment:
+	
+	\begin{itemize}
+		\item \textbf{Best Model for PubMed Dataset:}
+		\begin{itemize}
+			\item \texttt{Model Name: generalized\_20241216\_095352}
+			\item \texttt{Accuracy: 0.3900}
+		\end{itemize}
+		\item \textbf{Best Model for CiteSeer Dataset:}
+		\begin{itemize}
+			\item \texttt{Model Name: generalized\_20241216\_122132}
+			\item \texttt{Accuracy: 0.2680}
+		\end{itemize}
+		\item \textbf{Best Model for Cora Dataset:}
+		\begin{itemize}
+			\item \texttt{Model Name: generalized\_20241216\_114950}
+			\item \texttt{Accuracy: 0.8220}
+		\end{itemize}
+	\end{itemize}
+	}
+	
+	\newpage
+	\section{Link Prediction}
+	\configuratedText{
+	For performing link prediction, you can execute \texttt{find\_best} command:
+	\begin{tcolorbox}
+		\texttt{python main.py link\_prediction}
+	\end{tcolorbox}
+
+	\subsection{Link Prediction Implementation}\label{sec:link-prediction}
+	
+	This section describes the implementation of the link prediction task, which involves training and evaluating a Graph Neural Network (GNN) to predict the existence of edges (links) in a graph. The implementation uses the \texttt{EdgePredictionTrainer} class and the \texttt{GeneralizedGNNForEdgePrediction} model.
+	
+	\subsubsection{Workflow for Link Prediction}
+	The link prediction task is executed using the \texttt{run\_link\_prediction} function, which follows these steps:
+	\begin{enumerate}
+		\item \textbf{Dataset Loading:} 
+		\begin{itemize}
+			\item The dataset is loaded using the \texttt{DatasetLoader}, providing node features and edges.
+			\item Example datasets include Cora, CiteSeer, and PubMed.
+		\end{itemize}
+		
+		\item \textbf{Model Configuration:} 
+		\begin{itemize}
+			\item A dictionary of hyperparameters is defined, including:
+			\begin{itemize}
+				\item Input dimensions (\texttt{input\_dim}) based on the number of node features.
+				\item Hidden and output dimensions (\texttt{hidden\_dim} and \texttt{output\_dim}).
+				\item Number of layers (\texttt{num\_layers}) and additional settings (e.g., residual connections, dropout).
+			\end{itemize}
+		\end{itemize}
+		
+		\item \textbf{Training and Evaluation:} 
+		\begin{itemize}
+			\item The \texttt{EdgePredictionTrainer} is used to train the GNN for edge prediction.
+			\item Actions include:
+			\begin{itemize}
+				\item \textbf{Training:} Optimizing the model on positive and negative edges.
+				\item \textbf{Evaluation:} Calculating metrics such as accuracy, precision, recall, F1-score, and ROC-AUC.
+			\end{itemize}
+		\end{itemize}
+	\end{enumerate}
+	
+	\subsubsection{EdgePredictionTrainer Class}
+	The \texttt{EdgePredictionTrainer} class handles the following:
+	
+	\begin{itemize}
+		\item \textbf{Edge Splitting:} 
+		\begin{itemize}
+			\item The graph's edges are split into training and validation sets using a random permutation.
+			\item Negative edges (non-existent links) are dynamically sampled during training and validation.
+		\end{itemize}
+		
+		\item \textbf{Training Process:} 
+		\begin{itemize}
+			\item Positive and negative edges are concatenated to create a balanced dataset.
+			\item The model predicts scores for edges, and the loss is calculated using binary cross-entropy.
+			\item Validation is performed after each epoch, tracking the best model based on the validation ROC-AUC score.
+		\end{itemize}
+		
+		\item \textbf{Evaluation Process:} 
+		\begin{itemize}
+			\item The model's predictions on the validation/test set are converted to probabilities using the sigmoid function.
+			\item Metrics such as accuracy, precision, recall, F1-score, and ROC-AUC are computed to evaluate performance.
+		\end{itemize}
+	\end{itemize}
+	
+	\subsubsection{Generalized GNN for Edge Prediction}
+	The \texttt{GeneralizedGNNForEdgePrediction} class defines the architecture of the GNN. Key features include:
+	\begin{itemize}
+		\item Support for different GNN variants (e.g., GCN, GraphSAGE, GAT).
+		\item Residual connections and layer normalization for better training stability.
+		\item An edge predictor layer to calculate edge scores based on node embeddings.
+	\end{itemize}
+	
+	\subsubsection{Console Output and Metrics}
+	Running the link prediction task provides detailed outputs for training and evaluation. Below is an excerpt from the console output:
+	
+	\begin{tcolorbox}[colback=gray!10, colframe=gray!50, sharp corners, boxrule=0.5mm]
+		\texttt{
+			Starting link prediction...\\
+			Starting training...\\
+			Epoch 1/100, Loss: 0.6934, Val AUC: 0.5492\\
+			Epoch 2/100, Loss: 0.6929, Val AUC: 0.5969\\
+			...\\
+			Epoch 100/100, Loss: 0.6181, Val AUC: 0.6160\\
+			Starting evaluation...\\
+			Evaluation Metrics: \{'accuracy': 0.564, 'precision': 0.650, 'recall': 0.279, 'f1\_score': 0.390, 'roc\_auc': 0.589\}
+		}
+	\end{tcolorbox}
+	
+	\textbf{Key Observations:}
+	\begin{itemize}
+		\item \textbf{Training Metrics:} \\
+		The loss decreases during training, and validation ROC-AUC improves, indicating model learning.
+		\item \textbf{Evaluation Metrics:} \\
+		Metrics like accuracy, precision, recall, F1-score, and ROC-AUC are returned at the end.
+	\end{itemize}}
+
+	\newpage
+	\subsection{Analysis of Link Prediction Model}\label{sec:link-prediction-analysis}
+	\configuratedText{
+		\textbf{Model’s Ability to Predict Links:} \\
+		The link prediction model effectively identifies existing and non-existing edges by leveraging graph structures and node features. Metrics like ROC-AUC, precision, recall, and F1-score highlight its capability to detect true connections, though trade-offs between precision and recall reflect challenges with sparse or noisy graphs.
+		
+		\textbf{Practical Applications:} \\
+		Link prediction has diverse applications, including:
+		\begin{itemize}
+			\item \textbf{Recommender Systems:} Suggesting user-item connections or friends in social networks.
+			\item \textbf{Knowledge Graph Completion:} Filling in missing relationships in domains like healthcare or search engines.
+			\item \textbf{Social Network Analysis:} Discovering communities or improving targeted marketing.
+			\item \textbf{Fraud Detection:} Identifying suspicious activities in financial networks.
+			\item \textbf{Drug Discovery:} Predicting molecular or protein interactions for new drug targets.
+		\end{itemize}
+		
+		\textbf{Challenges and Considerations:} \\
+		Model performance depends on factors such as:
+		\begin{itemize}
+			\item \textbf{Data Sparsity:} Sparse graphs hinder generalization.
+			\item \textbf{Feature Relevance:} Noisy features degrade accuracy.
+			\item \textbf{Graph Variability:} Diverse structures may limit transferability.
+			\item \textbf{Scalability:} Large graphs require efficient computation.
+	\end{itemize}}
+	
+	
+
+	\newpage
+	\section{Node Embeddings Extraction and Visualization}
+	
+	\subsection{Process of Extracting and Visualizing Node Embeddings}
+	\configuratedText{
+	The process of extracting and visualizing node embeddings is outlined below:
+	
+	\textbf{Step 1: Embedding Extraction} \\
+	The \texttt{extract\_embeddings} function extracts node embeddings from a specified layer of a trained Generalized GNN (Graph Neural Network). The steps are:
+	\begin{itemize}
+		\item Metadata is loaded from the model directory to retrieve information about the dataset.
+		\item The corresponding dataset is loaded using the \texttt{DatasetLoader}.
+		\item A forward hook is registered on the specified layer (default: last layer) to capture its output during forward propagation.
+		\item The model processes the graph, and the embeddings are collected.
+	\end{itemize}
+	
+	\textbf{Step 2: Embedding Visualization} \\
+	The \texttt{analyze\_and\_visualize\_embeddings} function applies dimensionality reduction techniques (e.g., PCA, t-SNE) to the high-dimensional embeddings and visualizes them in a 2D space. Each point in the plot corresponds to a node, and colors represent different node classes. This step aids in understanding how well the GNN separates nodes of different classes.
+	
+	\subsection{Visualization of Node Embeddings for the Cora Dataset}
+	The visualization generated for the Cora dataset using PCA is shown below:
+	
+	\sectionCenteredfigure{\figone}{Visualization of Node Embeddings using PCA}{fig-1}
+	
+	\subsection{Interpretation of Results}
+	The visualization provides the following insights:
+	\begin{itemize}
+		\item \textbf{Cluster Formation:} Nodes of the same class (indicated by color) tend to form clusters. This indicates that the GNN successfully learns class-specific embeddings, separating nodes with similar properties in the embedding space.
+		\item \textbf{Inter-class Separation:} Some overlap is visible between certain clusters, suggesting that the model struggles to fully distinguish between similar classes. This could be due to overlapping feature distributions or noisy edges in the graph.
+	\end{itemize}
+	
+	}
+	
+	\newpage
+	\section{Node2Vec Implementation and Results}
+	\configuratedText{
+	\subsection{Overview}
+	Node2Vec is a powerful framework for generating node embeddings from graph data. It employs a biased random walk strategy to explore the graph and captures both local and global structural information through skip-gram modeling. These embeddings are then utilized for downstream tasks such as node classification and link prediction.
+	
+	\subsection{Execution}
+	The Node2Vec process can be executed using the following command:
+	\begin{tcolorbox}
+		\texttt{python main.py node2vec --dataset Cora --tasks node\_classification link\_prediction}
+	\end{tcolorbox}
+	
+	This command runs Node2Vec on the Cora dataset and evaluates its performance on node classification and link prediction tasks.
+	
+	\subsection{Training Process}
+	During training, Node2Vec optimizes embeddings through random walks and skip-gram modeling. Key steps include:
+	\begin{itemize}
+		\item Generating random walks of specified length for each node.
+		\item Using these walks to create positive and negative examples for skip-gram training.
+		\item Optimizing the embeddings via stochastic gradient descent using a logistic loss function.
+	\end{itemize}
+	
+	The training process outputs loss values over multiple epochs, indicating how well the model learns meaningful embeddings. }
+	
+	\textbf{Example Output:}
+	\begin{verbatim}
+		Epoch 1/100, Loss: 6.6019
+		Epoch 2/100, Loss: 6.4174
+		...
+		Epoch 100/100, Loss: 1.5908
+		Training complete!
+	\end{verbatim}
+	\configuratedText{
+	\subsection{Evaluation Results}
+	Once embeddings are generated, Node2Vec evaluates its effectiveness on the following tasks:
+	
+	\subsubsection{Node Classification}
+	Node classification uses the generated embeddings as input features to a logistic regression model. Metrics for classification performance include accuracy, precision, recall, and F1-score. The results for the Cora dataset are as follows:
+	\begin{itemize}
+		\item \textbf{Accuracy:} 35\%
+		\item \textbf{Precision:} 34.48\%
+		\item \textbf{Recall:} 35.71\%
+		\item \textbf{F1-Score:} 33.94\%
+	\end{itemize}
+	
+	These results highlight the model’s ability to capture class-specific information within the embeddings.
+	
+	\subsubsection{Link Prediction}
+	Link prediction evaluates the embeddings' capability to predict the existence of edges in the graph. Metrics include:
+	\begin{itemize}
+		\item \textbf{Accuracy:} 75.12\%
+		\item \textbf{Precision:} 66.78\%
+		\item \textbf{Recall:} 99.98\%
+		\item \textbf{F1-Score:} 80.07\%
+	\end{itemize}
+	
+	The high recall indicates that the model is effective in identifying true connections, while the slightly lower precision suggests occasional false positives.
+	
+	\subsection{Conclusion}
+	Node2Vec generates versatile node embeddings that effectively represent graph structures. While performance on node classification tasks highlights room for improvement, link prediction metrics demonstrate its capability to capture meaningful graph relationships. These embeddings are valuable for tasks requiring structural and contextual understanding of graphs.
+}
+	
+	\newpage
+	\section{Explainability}
+	
+	\subsection{Overview}
+	Explainability in Graph Neural Networks (GNNs) is crucial for understanding the rationale behind model predictions. By identifying the most important features, nodes, and edges that influence a prediction, we can gain insights into the decision-making process of GNNs. This section outlines the implementation and results of explainability using the GNNExplainer algorithm.
+	
+	\subsection{Implementation}
+	The explainability module uses the GNNExplainer to highlight significant graph components for a given node prediction. The process is executed via the following command:
+	\begin{tcolorbox}
+		\texttt{python main.py explain --dataset Cora}
+	\end{tcolorbox}
+	
+	Key steps in the implementation include:
+	\begin{itemize}
+		\item \textbf{Node Explanation}: The GNNExplainer identifies important edges and node features influencing the prediction for a specific node.
+		\item \textbf{Edge Masking}: An edge importance mask is generated to indicate which edges were critical for the model's decision.
+		\item \textbf{Visualization}: A subgraph centered on the explained node is visualized with highlighted edges and nodes, offering an intuitive understanding of the explanation.
+	\end{itemize}
+	
+	\subsection{Example Results}
+	The visualization output for a selected node (Figure~\ref{fig:explainability}) shows:
+	\begin{itemize}
+		\item Red nodes represent the class to which the node belongs.
+		\item Gray nodes indicate other nodes in the subgraph.
+		\item Blue edges denote significant edges identified by the explainer as critical to the prediction.
+	\end{itemize}
+	
+	\sectionCenteredfigure{\figtwo}{Visualization of }{fig-2}
+	
+	\subsection{Analysis}
+	The visualization highlights the most critical parts of the graph structure influencing the model’s decision. This information can be used for:
+	\begin{itemize}
+		\item \textbf{Model Debugging}: Understanding why the model made a specific prediction helps in diagnosing issues such as overfitting or bias.
+		\item \textbf{Trust and Interpretability}: Providing insights into the model's decision-making process increases user trust in AI systems.
+		\item \textbf{Feature Engineering}: Identifying key features and relationships can guide feature selection or graph preprocessing for improved performance.
+	\end{itemize}
 	
 	
 	

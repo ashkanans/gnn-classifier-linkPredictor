@@ -279,12 +279,11 @@ def main():
     link_prediction_parser.add_argument("--device", type=str, default="cuda",
                                         help="Device for training ('cpu' or 'cuda')")
 
-    # Add this to the `main` function
     embedding_parser = subparsers.add_parser(
         "analyze_embeddings", help="Extract and visualize node embeddings"
     )
     embedding_parser.add_argument("--model_path", help="Path to the trained model",
-                                  default="saved_models/generalized_20241216_094023")
+                                  default="saved_models/generalized_20241216_114950")
     embedding_parser.add_argument("--dataset", help="Dataset name (e.g., Cora)", default="Cora")
     embedding_parser.add_argument("--method", choices=["pca", "tsne"], default="pca", help="Reduction method")
     embedding_parser.add_argument("--layer_index", type=int, default=-1, help="Layer index to extract embeddings from")
