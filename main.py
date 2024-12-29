@@ -8,10 +8,12 @@ from embeddings.analyze_embeddings import extract_embeddings
 from embeddings.visualize_embeddings import visualize_embeddings
 from evaluation.cross_dataset_evaluator import CrossDatasetEvaluator
 from evaluation.evaluator import GNNEvaluator
+from models.node2vec_model import Node2VecModel
 from training.trainer import GNNTrainer
 from training.trainer_link_prediction import EdgePredictionTrainer
 from utils.config import Config
 from utils.find_best_models import find_best_models
+from utils.prepare_link_prediction_data import prepare_link_prediction_data
 
 
 def run_single_execution(args):
@@ -170,6 +172,48 @@ def analyze_and_visualize_embeddings(args):
         output_path=args.output_path
     )
 
+
+def run_node2vec(args):
+    # Load the dataset
+    dataset = DatasetLoader(args.dataset).load()
+    data = dataset[0]
+
+    # Initialize Node2Vec model
+    node2vec = Node2VecModel(
+        edge_index=data.edge_index,
+        embedding_dim=args.embedding_dim,
+        walk_length=args.walk_length,
+        context_size=args.context_size,
+        walks_per_node=args.walks_per_node,
+        epochs=args.epochs
+    )
+
+    # Train Node2Vec
+    node2vec.train()
+
+    # Get embeddings
+    embeddings = node2vec.get_embeddings()
+
+    # Perform tasks
+    if "node_classification" in args.tasks:
+        metrics = node2vec.evaluate_node_classification(embeddings, data.y, data.train_mask, data.test_mask)
+        print("\nNode Classification Metrics:")
+        print(metrics)
+
+    if "link_prediction" in args.tasks:
+        # Ensure edge_label_index and edge_label exist
+        data = prepare_link_prediction_data(data)
+
+        # Split edge_label_index into positive and negative edges
+        pos_edge_index = data.edge_label_index[:, data.edge_label == 1]
+        neg_edge_index = data.edge_label_index[:, data.edge_label == 0]
+
+        # Evaluate link prediction
+        metrics = node2vec.evaluate_link_prediction(embeddings, pos_edge_index, neg_edge_index)
+        print("\nLink Prediction Metrics:")
+        print(metrics)
+
+
 def main():
     parser = argparse.ArgumentParser(description="GNN Training, Evaluation, Cross-Testing, and Experimentation")
 
@@ -226,6 +270,17 @@ def main():
     embedding_parser.add_argument("--output_path", type=str, default=None, help="Path to save the plot")
     embedding_parser.set_defaults(func=analyze_and_visualize_embeddings)
 
+    node2vec_parser = subparsers.add_parser("node2vec", help="Run Node2Vec-based tasks")
+    node2vec_parser.add_argument("--dataset", required=True, help="Dataset name (e.g., Cora)")
+    node2vec_parser.add_argument("--embedding_dim", type=int, default=64, help="Node embedding dimensionality")
+    node2vec_parser.add_argument("--walk_length", type=int, default=10, help="Length of random walks")
+    node2vec_parser.add_argument("--context_size", type=int, default=10, help="Context size for skip-gram")
+    node2vec_parser.add_argument("--walks_per_node", type=int, default=5, help="Number of walks per node")
+    node2vec_parser.add_argument("--epochs", type=int, default=100, help="Training epochs")
+    node2vec_parser.add_argument("--tasks", nargs="+", choices=["node_classification", "link_prediction"],
+                                 required=True)
+    node2vec_parser.set_defaults(func=run_node2vec)
+
     args = parser.parse_args()
 
     if args.command == "single":
@@ -238,6 +293,8 @@ def main():
         run_link_prediction(args)
     elif args.command == "analyze_embeddings":
         analyze_and_visualize_embeddings(args)
+    elif args.command == "node2vec":
+        run_node2vec(args)
     else:
         parser.print_help()
 
