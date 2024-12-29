@@ -1,0 +1,45 @@
+% User manual configuration
+
+\newcommand{\userManualSimpleTextSize}{13pt}
+\newcommand{\userManualSimpleTextStyle}{Times New Roman}
+
+% This command defines custom font sizes for section, subsection, and subsubsection headings in LaTeX, and sets them accordingly using the titlesec package.
+% Usage: Simply call the \myheadingstyles command in the preamble of your LaTeX document to define and set the custom font sizes.
+% Arguments: None.
+
+\newcommand{\myheadingstyles}{
+	\newcommand{\sectionfont}{\fontsize{20}{24}\selectfont}
+	\newcommand{\subsectionfont}{\fontsize{18}{22}\selectfont}
+	\newcommand{\subsubsectionfont}{\fontsize{16}{20}\selectfont}
+	
+	\titleformat{\section}
+	{\sectionfont\bfseries}{\thesection}{1em}{}
+	\titleformat{\subsection}
+	{\subsectionfont\bfseries}{\thesubsection}{1em}{}
+	\titleformat{\subsubsection}
+	{\subsubsectionfont\bfseries}{\thesubsubsection}{1em}{}
+}
+
+\newcommand{\myTOC}{
+	% Set font size and style for the table of contents
+	\renewcommand{\contentsname}{\fontsize{14}{16}\selectfont\textbf{\fontfamily{ptm}\selectfont Table of Contents}}
+	\Large
+	% Print the table of contents
+	\tableofcontents
+	
+	\newpage
+	
+	% Set font size and style for the list of figures
+	\renewcommand{\listfigurename}{\fontsize{14}{16}\selectfont\textbf{\fontfamily{ptm}\selectfont List of Figures}}
+	\Large
+	\listoffigures
+	
+	\newpage
+	
+	% Set font size and style for the list of tables
+	\renewcommand{\listtablename}{\fontsize{14}{16}\selectfont\textbf{\fontfamily{ptm}\selectfont List of Tables}}
+	\Large
+	\listoftables
+	
+	\newpage
+}

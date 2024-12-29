@@ -1,0 +1,423 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                            %
+%                    Read constant commands                  %
+%                                                            %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{resources/constants/images path/IMAGE_PATH.tex}
+\input{resources/constants/images path/IMAGE_NAMES.tex}
+\input{resources/constants/images path/IMAGE_REFS.tex}
+\input{resources/constants/configuration/GENERAL_CONFIGURATION.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                            %
+%                       Custom Commands                      %
+%                                                            %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Creates a new command for adding an animated GIF to the document.
+% Usage: \sectionCenteredgif[optional scale]{GIF file name}{caption text}{label}
+% - The optional scale argument (default 0.9) can be used to adjust the width of the GIF.
+% - The GIF file should be in the same directory as the LaTeX document.
+% - The caption text should describe the contents of the GIF.
+% - The label should be a unique identifier for the GIF, used for referencing it later in the text.
+
+\newcommand{\sectionCenteredgGif}[4][0.9]{
+	\begin{figure}[H]
+		\centering
+		\animategraphics[width=#1\linewidth,autoplay,loop]{12}{#2}{0}{49}
+		\caption{#3}
+		\label{fig:#4}
+	\end{figure}
+}
+
+
+% Usage: \imageCaptionTable{image path}{image caption}{image label}{text}
+% - The first argument should be the path to the image file in any format.
+% - The second argument should be the caption of the image to be displayed.
+% - The third argument should be the label of the image.
+% - The fourth argument should be the text to be displayed on the right side of the image.
+% - The resulting table will have the image displayed on the left (with the caption and label) and the text on the right.
+
+\newcommand{\imageCaptionTable}[4]{%
+	\begin{tabular}{l l}
+		\includegraphics[width=0.5\textwidth, caption={#2}, label={#3}]{#1} & \centering
+		\begin{varwidth}[t]{0.8\textwidth}
+			\configuratedText{#4}
+		\end{varwidth}
+	\end{tabular}
+}
+
+% Inserts a small image in the middle of a text
+% Usage: \smallimage[optional scale]{image file name}
+% - The optional scale argument (default 0.5) can be used to adjust the size of the image.
+% - The image file should be in the same directory as the LaTeX document.
+
+\newcommand{\smallimage}[2][0.03]{
+	\includegraphics[width=#1\linewidth]{#2}
+}
+
+
+% Creates a new figure with an image centered on the page, and adds a caption and label for reference.
+% Usage: \sectionCenteredfigure[optional scale]{image file name}{caption text}{label}
+% - The optional scale argument (default 0.9) can be used to adjust the width of the image.
+% - The image file should be in the same directory as the LaTeX document.
+% - The caption text should describe the contents of the image.
+% - The label should be a unique identifier for the figure, used for referencing it later in the text.
+
+\newcommand{\sectionCenteredfigure}[4][0.9]{
+	\begin{figure}[H]
+		\centering
+		\fbox{\includegraphics[width=#1\linewidth]{#2}}
+		\caption{#3}
+		\label{fig:#4}
+	\end{figure}
+}
+
+
+% Creates a new block of justified text with a specified font and font size.
+% Usage: \generalText{font family}{font size}{text}
+% - The font family argument specifies the font to be used (e.g., Times New Roman, Arial, etc.).
+% - The font size argument specifies the size of the font (e.g., 12pt, 14pt, etc.).
+% - The text argument should contain the text to be justified.
+% - The resulting block of text will be fully justified (i.e., aligned with both the left and right margins).
+
+\newcommand{\customText}[3]{%
+	\par\begingroup
+	\setlength{\parindent}{0pt}%
+	\linespread{1.3}%
+	\fontsize{#2}{#2}%
+	\fontfamily{#1}\selectfont #3%
+	\par\endgroup%
+}
+
+% Creates a new block of justified text with the font size and font style of configuration file.
+% Usage: \generalText{text}
+% - The font family argument is specfied by \userManualSimpleTextStyle 
+% - The font size argument is specified by \userManualSimpleTextSize
+% - The text argument should contain the text to be justified.
+% - The resulting block of text will be fully justified (i.e., aligned with both the left and right margins).
+
+\newcommand{\configuratedText}[1]{%
+	\par\begingroup
+	\setlength{\parindent}{0pt}%
+	\linespread{1.3}%
+	\selectfont #1%
+	\par\endgroup%
+}
+
+% Defines a new command for referencing figures.
+% Usage: \figref{label}
+% - The argument should be the label of the figure to be referenced.
+% - The resulting output will be in the format "(Figure <number>)", where <number> is the number of the referenced figure.
+% - The label should be defined using \label{fig:<label>} command in the figure environment.
+% - The \hyperref command creates a hyperlink to the referenced figure.
+% - The \ref* command produces only the number of the referenced figure, without the preceding "Figure" text.
+
+\newcommand{\figref}[1]{(\hyperref[fig:#1]{Figure \ref*{fig:#1}})}
+
+% Creates a new table with an icon and its name.
+% Usage: \customTable{icon path}{icon name}
+% - The first argument should be the path to the icon file in PNG format.
+% - The second argument should be the name of the icon to be displayed.
+% - The resulting table will have the icon displayed on the left and its name on the right.
+
+\newcommand{\iconNameTable}[2]{%
+	\begin{tabular}{l l}
+		\includegraphics[width=0.03\textwidth]{#1} & \centering 
+		\begin{varwidth}[t]{0.8\textwidth}
+			\configuratedText{#2}
+		\end{varwidth}
+	\end{tabular}
+}
+
+% Creates a new table with an icon and its name.
+% Usage: \customTable{icon path}{icon name}
+% - The first argument should be a text.
+% - The second argument should be a text.
+% - The resulting table will have the text displayed on the left and a text on the right.
+
+\newcommand{\textTextTable}[3][2cm]{%
+	\begin{tabular}{p{#1} p{\dimexpr0.90\textwidth-#1}}
+		\configuratedText{#2}
+		&
+		\begin{varwidth}[t]{\linewidth}
+			\configuratedText{#3}
+		\end{varwidth}
+	\end{tabular}
+}
+
+% Creates a new table with an icon, its name, and its description.
+% Usage: \iconNameDescriptTable{icon path}{icon name}{icon description}
+% - The first argument should be the path to the icon file in PNG format.
+% - The second argument should be the name of the icon to be displayed.
+% - The third argument should be a description of the icon.
+% - The resulting table will have the icon displayed on the left, its name in the middle, and its description on the right.
+% - The table has three columns with widths of 0.1, 0.3, and 0.5 times the text width, respectively.
+% - The second and third columns are aligned to the left.
+
+\newcommand{\iconNameDescriptTable}[3]{%
+	\begin{tabular}{p{0.05\textwidth} p{0.2\textwidth} m{0.6\textwidth}}
+		\includegraphics[width=0.03\textwidth]{#1} & \raggedright \configuratedText{#2} & \justify \configuratedText{#3} \
+	\end{tabular}
+}
+
+% Creates a new table with an text, its name, and its description.
+% Usage: \textDescriptTable{text}{text name}{text description}
+% - The first argument should be the text to be displayed on the left.
+% - The second argument should be the name of the text.
+% - The third argument should be a description of the text.
+% - The resulting table will have the text displayed on the left, its name in the middle, and its description on the right.
+% - The table has three columns with widths of 0.1, 0.3, and 0.5 times the text width, respectively.
+% - The second and third columns are aligned to the left.
+
+\newcommand{\textDescriptTable}[3]{%
+	\begin{tabular}{m{0.1\textwidth} m{0.1\textwidth} m{0.5\textwidth}}
+		\raggedright \configuratedText{#1} & \raggedright \configuratedText{#2} & \raggedright \configuratedText{#3} \
+	\end{tabular}
+}
+
+% Creates a new block of two columns with an image on the left and justified text on the right.
+% Usage: \twocolumns{optional scale}{image file name}{caption text}{font family}{font size}{text}
+
+% - 1: The optional scale argument (default 0.9) can be used to adjust the width of the image.
+% - 2: The image file should be in the same directory as the LaTeX document.
+% - 3: The caption text should describe the contents of the image.
+% - 4: The font family argument specifies the font to be used (e.g., Times New Roman, Arial, etc.).
+% - 5: The font size argument specifies the size of the font (e.g., 12pt, 14pt, etc.).
+% - 6: The text argument should contain the text to be justified.
+
+\newcommand{\twoColumns}[6]{
+	\begin{minipage}[t]{0.50\textwidth}
+		\customText{#4}{#5}{#6}
+	\end{minipage}\hfill
+	\begin{minipage}[r]{0.45\textwidth}
+
+	\end{minipage}
+}
+
+\documentclass[12]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{tocloft}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{soul}
+\usepackage{times}
+\usepackage{listings}
+\usepackage{url}
+\usepackage{wrapfig}
+\usepackage{array}
+\usepackage{varwidth}
+\usepackage{float}
+\usepackage{titlesec}
+\usepackage{ragged2e}
+\usepackage{todonotes}
+\usepackage{tocloft}
+\usepackage{changepage}
+\usepackage{animate}
+\usepackage{forest}
+\usepackage{adjustbox}
+
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{hyperref}
+
+\lstset{
+	breaklines=true, 
+	basicstyle=\ttfamily,
+	columns=fullflexible
+}
+
+\cftsetindents{section}{1.5em}{5.0em}
+\cftsetindents{subsection}{2em}{5.0em}
+\cftsetindents{subsubsection}{3em}{5.0em}
+
+% Use the new command to set the font sizes and titleformat settings
+\myheadingstyles
+
+% Customize hyperlinks in the document
+\hypersetup{
+	colorlinks=true, % enable colored hyperlinks
+	linkcolor=blue, % set the color of internal links to black
+	filecolor=magenta, % set the color of links to local files to magenta
+	urlcolor=blue, % set the color of links to URLs to blue
+	bookmarks=true, % enable the creation of bookmarks in the PDF file
+}
+
+\geometry{
+	a4paper, % set paper size to A4
+	left=2cm, % set left margin to 2cm
+	right=2cm, % set right margin to 2cm
+	top=2.5cm, % set top margin to 2.5cm
+	bottom=2.5cm % set bottom margin to 2.5cm
+}
+
+\lstset{
+	basicstyle=\ttfamily\normalsize, % Monospace font
+	breaklines=true,            % Enable line breaking
+	columns=fullflexible,       % Avoids text spacing issues
+	keepspaces=true
+}
+
+\tcbset{
+	colback=gray!10, % Background color
+	colframe=gray!50, % Border color
+	boxrule=0.5mm, % Border thickness
+	sharp corners,
+	left=5pt, % Left padding
+	right=5pt % Right padding
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                            %
+%                    Document Starts Here                    %
+%                                                            %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+	
+	\begin{center}
+		\begin{figure}[h]
+			\centering
+			\includegraphics[width=0.4\linewidth]{\cnsFiveTwelve}
+		\end{figure}
+		\vspace{1cm} 
+		{\fontsize{28}{34}\selectfont \textbf{Data Mining}}
+	\end{center}
+
+	\vspace{0.5cm} 
+	
+	\begin{center}
+	{\fontsize{22}{28}\selectfont \textbf{HW 4}}
+	\end{center}
+
+	\vspace{0.5cm} 
+
+	\begin{center}
+	{\fontsize{20}{25}\selectfont Ashkan Ansarifard}
+	\end{center}
+	\vspace{0.5cm} 
+
+	\begin{center}
+		{\fontsize{20}{25}\selectfont 1970082}
+	\end{center}
+
+	\vspace{1cm} 
+
+	\textcolor{blue!60!black}{\rule{\linewidth}{2pt}}
+	
+	\vspace{8cm} 
+	
+	\begin{center}
+	\textbf{A.Y. 2024/25}
+	\end{center}
+
+	\thispagestyle{empty}
+	
+	\newpage
+	
+	\myTOC
+
+	\newpage
+	\section{Introduction}\label{sec:intro}
+	\subsection{Project Structure}\label{sec:proj-strut}
+	\configuratedText{In this section, we show how the project is structured. In the following sections, we refect to this structure and explain what each module does.
+		
+	For now, you can find the overall project structure as following:\\
+	
+	}
+	\begin{lstlisting}
+		project_root/
+		+-- main.py
+		|
+		+-- data/
+		|   +-- dataset_loader.py
+		|   +-- prepare_link_prediction_data.py
+		|
+		+-- embeddings/
+		|   +-- analyze_embeddings.py
+		|   +-- visualize_embeddings.py
+		|
+		+-- evaluation/
+		|   +-- evaluator.py
+		|   +-- cross_dataset_evaluator.py
+		|   +-- link_prediction_evaluator.py
+		|
+		+-- models/
+		|   +-- gnn_model.py
+		|   +-- generalized_gnn.py
+		|   +-- gnn_explainer.py
+		|   +-- node2vec_model.py
+		|   +-- link_prediction_gnn.py
+		|
+		+-- saved_models/
+		|   +-- generalized_<timestamp>/
+		|       +-- model.pth
+		|       +-- metadata.json
+		|
+		+-- training/
+		|   +-- trainer.py
+		|   +-- trainer_link_prediction.py
+		|
+		+-- utils/
+		|   +-- config.py
+		|   +-- dimensionality_handler.py
+		|   +-- device.py
+		|   +-- find_best_models.py
+		|   +-- load_generalized_gnn.py
+		|   +-- model_saver.py
+		|
+		+-- README.md
+		|
+		+-- requirements.txt
+		+-- setup.bat
+		+-- setup.sh
+	\end{lstlisting}
+	
+	\subsection{Environment Setup}\label{sec:env-setup}
+	
+	To execute this project, follow these steps:
+	
+	\begin{enumerate}
+		\item Ensure that Python 11.3 is installed on your system. You can download it from the \href{https://www.python.org/downloads/}{official Python website}.
+		
+		\item Run the provided setup script to create and configure the virtual environment:
+		\begin{itemize}
+			\item On Windows, run:
+			\begin{tcolorbox}
+				\texttt{setup.bat}
+			\end{tcolorbox}
+			\item On macOS/Linux, run:
+			\begin{tcolorbox}
+				\texttt{bash setup.sh}
+			\end{tcolorbox}
+		\end{itemize}
+		
+		\item After the setup script completes, activate the virtual environment:
+		\begin{itemize}
+			\item On Windows:
+			\begin{tcolorbox}
+				\texttt{<venv\_name>\textbackslash Scripts\textbackslash activate}
+			\end{tcolorbox}
+			\item On macOS/Linux:
+			\begin{tcolorbox}
+				\texttt{source <venv\_name>/bin/activate}
+			\end{tcolorbox}
+		\end{itemize}
+		
+		\item Run the project using:
+		\begin{tcolorbox}
+			\texttt{python main.py}
+		\end{tcolorbox}
+	\end{enumerate}
+	
+	After completing these steps, your environment will be properly configured for executing the project.
+	
+	
+	
+\end{document}
